@@ -10,9 +10,9 @@ powerspy.py
 		apt-get install python-bluez
 
 2. [Optional, recommended] set up your bluetooth device to connect automatically without asking for PIN.
-This can be done by modifying or creating /var/lib/bluetooth/<DEVICE>/pincodes with the following content: <POWERSPY> <PIN>
+This can be done by modifying or creating /var/lib/bluetooth/DEVICE/pincodes with the following content: POWERSPY PIN
 
-<POWERSPY> and <DEVICE> are the device addresses of the bluetooth receiver and the Powerspy. They can be found with the commands hcitool dev and hcitool scan respectively.
+POWERSPY and DEVICE are the device addresses of the Powerspy and the bluetooth receiver. They can be found with the commands hcitool dev and hcitool scan respectively.
 
 ## Getting started
 
