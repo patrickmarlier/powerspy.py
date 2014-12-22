@@ -7,7 +7,7 @@ class Simulator:
   answers = {
               '<S>' : '<K>',
               '<C>' : '<K>',
-              '<F>' : '<F1F40>',
+              '<F>' : '<F4E20>',
 #              '<A>' : '<A20513180...>',
 #              '<?>' : '<POWERSPYR010102014567>',
                '<?>' : '<POWERSPYC01FF35020001>',
@@ -31,13 +31,13 @@ class Simulator:
 '<Q>' : '<K>',
 #'<C>':'<Z>',
 '<C>':'<K>',
-'<J0020>':'<K><007A1FCA 001F82FB 003AC29C 0FA9 0AB5>'+chr(0x0a)+chr(0x0d)
+'<J0032>':'<K><007A1FCA 001F82FB 003AC29C 0FA9 0AB5>'+chr(0x0a)+chr(0x0d)
 +'<007656F4 001CF0BF 00379ECF 0F2E 09DA>'+chr(0x0a)+chr(0x0d)
 +'<007650A7 001C1FEB 003688C2 0F2F 09EE>'+chr(0x0a)+chr(0x0d)
 +'<00765D23 001D2704 00378BCB 0F2F 0A00>'+chr(0x0a)+chr(0x0d)
 +'<00766B6A 001B26BF 0035D7A8 0F2F 0957>'
 ,
-'<J20>':'<K><007A1FCA 001F82FB 003AC29C 0FA9 0AB5>'+chr(0x0a)+chr(0x0d)
+'<J32>':'<K><007A1FCA 001F82FB 003AC29C 0FA9 0AB5>'+chr(0x0a)+chr(0x0d)
 +'<007656F4 001CF0BF 00379ECF 0F2E 09DA>'+chr(0x0a)+chr(0x0d)
 +'<007650A7 001C1FEB 003688C2 0F2F 09EE>'+chr(0x0a)+chr(0x0d)
 +'<00765D23 001D2704 00378BCB 0F2F 0A00>'+chr(0x0a)+chr(0x0d)
