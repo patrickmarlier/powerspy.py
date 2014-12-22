@@ -65,6 +65,7 @@ DEFAULT_INTERVAL = 1.0 # secs (float allowed, interval between each output)
 class PowerSpy:
   def __init__ (self):
     self.sock = None
+    self.timeout = DEFAULT_TIMEOUT
     self.status = None
     self.pll_locked = None
     self.trigger_status = None
@@ -88,7 +89,7 @@ class PowerSpy:
       return 1
 
     # Should not set timeout before connect (connect may require more time)
-    self.sock.settimeout(DEFAULT_TIMEOUT)
+    self.sock.settimeout(self.timeout)
     return 0
 
   def sendCmd(self, c):
@@ -243,8 +244,8 @@ class PowerSpy:
   # Start real time monitoring with specific interval
   # rt_stop() must be called if the function succeed
   def rt_start(self, interval = DEFAULT_INTERVAL):
-    # big interval will make the timeout to be reached
-    if interval >= DEFAULT_TIMEOUT:
+    # long interval will make the timeout to be reached
+    if interval >= self.timeout:
        logging.warning("Consider increasing the timeout value or decrease the interval")
     # Convert the interval using frequency to find the averaging periods
     avg_period = int(interval * self.frequency)
@@ -334,6 +335,7 @@ if __name__ == '__main__':
   parser.add_argument('-i', '--interval', type=float, default=1.0, help='Interval between each measurement.')
   parser.add_argument('-v', '--verbose', action='count', help='Verbose mode.')
   parser.add_argument('-t', '--time', type=int, default=0, help='Time of execution (seconds). 0 means running indefinitely.')
+  parser.add_argument('-T', '--timeout', type=float, default=0.0, help='Maxiumum duration to get an answer from the device (seconds).')
   # in case of release
   #parser.add_argument('--version', action='version', version='%(prog)s unreleased')
   args = parser.parse_args()
@@ -345,6 +347,9 @@ if __name__ == '__main__':
   signal.signal(signal.SIGINT, exit_gracefully)
 
   dev = PowerSpy()
+  if args.timeout:
+    dev.timeout = args.timeout
+
   if args.device_mac == "simulator":
     import powerspysimulator
     dev.sock = powerspysimulator.Simulator()
