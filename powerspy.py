@@ -243,17 +243,21 @@ class PowerSpy:
 
   # Start real time monitoring with specific interval
   # rt_stop() must be called if the function succeed
+  # TODO change this function to make the distinction between averaging period and interval
   def rt_start(self, interval = DEFAULT_INTERVAL):
     # long interval will make the timeout to be reached
     if interval >= self.timeout:
        logging.warning("Consider increasing the timeout value or decrease the interval")
     # Convert the interval using frequency to find the averaging periods
     avg_period = int(interval * self.frequency)
-    # TODO check if not overflow 255 for v1 and 65535 for v2
     if self.hw_version == "02":
+      if avg_period > 100:
+        logging.error('PowerSpy v1 does not support this number of averaging period. Consider reducing the interval.')
+        avg_period = 100
       # PowerSpy v1 (hw_version == "02") format for CMD_RT <JXX>
       self.sendCmd("%s%02X" % (CMD_RT, avg_period))
     else:
+      # TODO check if avg_period does not overflow 65535 for v2
       self.sendCmd("%s%04X" % (CMD_RT, avg_period))
     a = self.recvCmd(3)
     if a != CMD_OK:
