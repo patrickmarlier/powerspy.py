@@ -338,7 +338,6 @@ class PowerSpy:
     avg_period = int(round(interval * self.frequency))
     if avg_period > self.max_avg_period:
       logging.warning('PowerSpy capacity exceeded: it will be average of averaged values for one second.')
-      # FIXME Handle this case of doing average
       avg_period = int(round(self.frequency))
       every = int(round(interval))
     else:
