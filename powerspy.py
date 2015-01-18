@@ -59,13 +59,12 @@ CMD_FAILED = 'Z'
 running = True
 
 # Constants
-DEFAULT_TIMEOUT = 3.0 # secs (float allowed, timeout to receive response from PowerSpy)
+DEFAULT_TIMEOUT = 3.0 # secs (float allowed, timeout to receive response from PowerSpy, except in realtime mode)
 DEFAULT_INTERVAL = 1.0 # secs (float allowed, interval between each output)
 
 class PowerSpy:
   def __init__ (self):
     self.sock = None
-    self.timeout = DEFAULT_TIMEOUT
     self.status = None
     self.pll_locked = None
     self.trigger_status = None
@@ -75,6 +74,7 @@ class PowerSpy:
     self.uscale_factory = self.iscale_factory = self.pscale_factory = None
     self.uscale_current = self.iscale_current = self.pscale_current = None
     self.frequency = None
+    self.max_avg_period = None
 
   def connect(self, address):
     if self.sock != None:
@@ -89,7 +89,7 @@ class PowerSpy:
       return 1
 
     # Should not set timeout before connect (connect may require more time)
-    self.sock.settimeout(self.timeout)
+    self.sock.settimeout(DEFAULT_TIMEOUT)
     return 0
 
   def sendCmd(self, c):
@@ -143,7 +143,6 @@ class PowerSpy:
     self.hw_serial      = extra[8:12] # HW serial number (2 bytes / 4 characters)
     logging.debug('status: %s pll_locked: %s trigger_status: %s sw_version: %s hw_version: %s hw_serial: %s' % (self.status, self.pll_locked, self.trigger_status, self.sw_version, self.hw_version, self.hw_serial))
     return True
-
 
   # Read EEPROM float (values: must be an array of 4 elements)
   def get_eeprom_float(self, values):
@@ -215,6 +214,12 @@ class PowerSpy:
     self.calc_pscale()
     logging.debug("uscale_factory:%.8f iscale_factory:%.8f pscale_factory:%.8f" % (self.uscale_factory, self.iscale_factory, self.pscale_factory))
     logging.debug("uscale_current:%.8f iscale_current:%.8f pscale_current:%.8f" % (self.uscale_current, self.iscale_current, self.pscale_current))
+    if self.hw_version == "02":
+      # PowerSpy v1 supports 100 averaging periods.
+      self.max_avg_period = 100
+    else:
+      # PowerSpy v2 (assuming all other versions) supports 65535 averaging periods.
+      self.max_avg_period = 65535
     return True
 
   # deinitialize the PowerSpy device and close the serial port
@@ -230,6 +235,9 @@ class PowerSpy:
     if a != CMD_OK:
       logging.error('CMD_START FAILED')
       return False
+    # Switching to acquisition mode requires some time
+    # FIXME Ask alciom how long should we wait
+    time.sleep(0.1)
     return True
 
   def acquisition_stop(self):
@@ -241,33 +249,27 @@ class PowerSpy:
     #  return False
     return True
 
-  # Start real time monitoring with specific interval
+  # Start real time monitoring with the specified averaging periods
   # rt_stop() must be called if the function succeed
-  # TODO change this function to make the distinction between averaging period and interval
-  def rt_start(self, interval = DEFAULT_INTERVAL):
-    # long interval will make the timeout to be reached
-    if interval >= self.timeout:
-       logging.warning("Consider increasing the timeout value or decrease the interval")
-    # Convert the interval using frequency to find the averaging periods
-    avg_period = int(interval * self.frequency)
+  def rt_start(self, avg_period):
+    # Change the socket timeout to wait at least the interval plus the default timeout
+    interval = avg_period / self.frequency
+    self.sock.settimeout(interval + DEFAULT_TIMEOUT)
+    # Check if exceeded number of avg_period
+    if avg_period > self.max_avg_period:
+      logging.error('Your PowerSpy does not support %d averaging periods (only %d).' % (avg_period, max_avg_period))
+      return False
+    # Encoding of the J command is different between v1 and v2
     if self.hw_version == "02":
-      if avg_period > 100:
-        logging.error('PowerSpy v1 does not support this number of averaging period. Consider reducing the interval.')
-        avg_period = 100
       # PowerSpy v1 (hw_version == "02") format for CMD_RT <JXX>
       self.sendCmd("%s%02X" % (CMD_RT, avg_period))
     else:
-      # TODO check if avg_period does not overflow 65535 for v2
       self.sendCmd("%s%04X" % (CMD_RT, avg_period))
     a = self.recvCmd(3)
     if a != CMD_OK:
       logging.error('CMD_RT FAILED')
       return False
     return True
-
-  # Display the column header for rt_read()
-  def rt_cols(self):
-    print("# timestamp\tV\tA\tW\tV\tA")
 
   # Read monitored values and display them
   def rt_read(self):
@@ -308,12 +310,12 @@ class PowerSpy:
     pvoltage = self.uscale_current * conv[3]
     pcurrent = self.iscale_current * conv[4]
 
-    print("%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f" % (time.time(), voltage, current, power, pvoltage, pcurrent))
-
-    return [voltage, current, power, pvoltage, pcurrent]
+    return voltage, current, power, pvoltage, pcurrent
 
   # Stop the real time monitoring
   def rt_stop(self):
+    # Reset the timeout to default
+    self.sock.settimeout(DEFAULT_TIMEOUT)
     # TODO can check status before to stop
     self.sendCmd(CMD_RT_STOP)
     # flush input because it can have still data to read
@@ -326,6 +328,60 @@ class PowerSpy:
         return True
     return True
 
+  # Display measurements every interval (sec) for the specified duration (sec)
+  # If interval is higher than the PowerSpy device capacity, it will be an average of the averaged PowerSpy measurements
+  def rt_capture(self, interval = 1.0, duration = 0.0):
+    if not self.acquisition_start():
+      logging.error('Acquisition failed')
+      return
+    # Convert the interval using frequency to find the averaging periods
+    avg_period = int(round(interval * self.frequency))
+    if avg_period > self.max_avg_period:
+      logging.warning('PowerSpy capacity exceeded: it will be average of averaged values for one second.')
+      # FIXME Handle this case of doing average
+      avg_period = int(round(self.frequency))
+      every = int(round(interval))
+    else:
+      every = 0
+    if not self.rt_start(avg_period):
+      logging.error('Realtime acquisition failed')
+      self.acquisition_stop()
+      return
+    endsat = time.time() + duration
+    print("# timestamp\tV\tA\tW\tV\tA")
+    # TODO to pythonify
+    voltages = []
+    currents = []
+    powers = []
+    pvoltages = []
+    pcurrents = []
+    while (running and (duration == 0.0 or time.time() < endsat)):
+      voltage, current, power, pvoltage, pcurrent = self.rt_read()
+      # TODO should we check if rt_read returns [0,0,0,0,0] or None?
+      if every != 0:
+        voltages.append(voltage)
+        currents.append(current)
+        powers.append(power)
+        pvoltages.append(pvoltage)
+        pcurrents.append(pcurrent)
+        if len(voltages) != every:
+          continue
+        voltage = sum(voltages) / float(len(voltages))
+        current = sum(currents) / float(len(currents))
+        power = sum(powers) / float(len(powers))
+        pvoltage = max(pvoltages)
+        pcurrents = max(pcurrents)
+        voltages = []
+        currents = []
+        powers = []
+        pvoltages = []
+        pcurrents = []
+
+      print("%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f" % (time.time(), voltage, current, power, pvoltage, pcurrent))
+
+    self.rt_stop()
+    self.acquisition_stop()
+
 # Signal handler to exit properly on SIGINT
 def exit_gracefully(signal, frame):
   global running
@@ -336,9 +392,10 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Alciom PowerSpy reader.')
   # TODO can add mac address checker and normalizer
   parser.add_argument('device_mac', metavar='MAC', help='MAC address of the PowerSpy device.')
-  parser.add_argument('-i', '--interval', type=float, default=1.0, help='Interval between each measurement.')
   parser.add_argument('-v', '--verbose', action='count', help='Verbose mode.')
-  parser.add_argument('-t', '--time', type=int, default=0, help='Time of execution (seconds). 0 means running indefinitely.')
+  parser.add_argument('-i', '--interval', type=float, default=1.0, help='Interval between each measurement.')
+  # TODO should we rename time to duration? compatibility with previous version?
+  parser.add_argument('-t', '--time', type=float, default=0.0, help='Duration of execution (seconds). 0 means running indefinitely.')
   parser.add_argument('-T', '--timeout', type=float, default=0.0, help='Maxiumum duration to get an answer from the device (seconds).')
   # in case of release
   #parser.add_argument('--version', action='version', version='%(prog)s unreleased')
@@ -352,7 +409,7 @@ if __name__ == '__main__':
 
   dev = PowerSpy()
   if args.timeout:
-    dev.timeout = args.timeout
+    DEFAULT_TIMEOUT = args.timeout
 
   if args.device_mac == "simulator":
     import powerspysimulator
@@ -368,16 +425,8 @@ if __name__ == '__main__':
   if not dev.init():
     print("Device cannot be initialized")
     sys.exit(1)
-  dev.acquisition_start()
-  # Wait at least the interval to get enough values
-  time.sleep(args.interval)
-  dev.rt_start(args.interval)
 
-  dev.rt_cols()
-  endsat = time.time() + args.time
-  while (running and (args.time == 0 or time.time() < endsat)):
-    dev.rt_read()
-  dev.rt_stop()
-  dev.acquisition_stop()
+  dev.rt_capture(args.interval, args.time)
+
   dev.close()
 

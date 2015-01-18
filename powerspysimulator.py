@@ -61,6 +61,9 @@ class Simulator:
     except:
       self.answer = '<Z>'
 
+  def settimeout(self, t):
+    pass
+
   def test(self):
     self.sendall('<?>')
     print(self.recv(23))
