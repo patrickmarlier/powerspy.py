@@ -393,8 +393,7 @@ if __name__ == '__main__':
   parser.add_argument('device_mac', metavar='MAC', help='MAC address of the PowerSpy device.')
   parser.add_argument('-v', '--verbose', action='count', help='Verbose mode.')
   parser.add_argument('-i', '--interval', type=float, default=1.0, help='Interval between each measurement.')
-  # TODO should we rename time to duration? compatibility with previous version? Create alias for -d
-  parser.add_argument('-t', '--time', type=float, default=0.0, help='Duration of execution (seconds). 0 means running indefinitely.')
+  parser.add_argument('-t', '-d', '--time', '--duration', type=float, default=0.0, help='Duration of execution (seconds). 0 means running indefinitely.')
   parser.add_argument('-T', '--timeout', type=float, default=0.0, help='Maxiumum duration to get an answer from the device (seconds).')
   # in case of release
   #parser.add_argument('--version', action='version', version='%(prog)s unreleased')
