@@ -27,6 +27,7 @@ import math    # sqrt
 import signal  # signal handler
 import sys     # system exit
 import time    # sleep/time
+import errno   # IOError numbers
 
 # All powerspy commands
 CMD_ID = '?'
@@ -100,6 +101,7 @@ class PowerSpy:
     self.sock.sendall(buf)
 
   def recvCmd(self, size = 1):
+    global running
     assert(self.sock != None)
     # All powerspy commands are tagged with < >
     buf = ""
@@ -108,10 +110,16 @@ class PowerSpy:
         r = self.sock.recv(size)
         # then read one by one
         size = 1
-      except bluetooth.btcommon.BluetoothError as error:
-        # TODO probably timeout but there is no specific exception for it
-        logging.warning("Maybe timeout? %s" % error)
-        break
+      # TODO: fix in case of multiple ctrl+c
+      except bluetooth.btcommon.BluetoothError as err:
+        # damn BluetoothError
+        err = eval(err[0])
+        if err[0] == errno.EAGAIN:
+          logging.debug("EAGAIN due to signal interrupt. Try to quit.")
+          running = False
+        else: # TODO probably timeout but there is no specific exception for it
+          logging.warning("Maybe timeout? %s" % err)
+          break
       # FIXME what to do for multiple message? keep it in buffer...
       buf = "%s%s" % (buf,r)
       mat = re.search('<(.*)>', buf, re.MULTILINE)
