@@ -362,32 +362,35 @@ class PowerSpy:
     powers = []
     pvoltages = []
     pcurrents = []
-    while (running and (duration == 0.0 or time.time() < endsat)):
-      voltage, current, power, pvoltage, pcurrent = self.rt_read()
-      # TODO should we check if rt_read returns [0,0,0,0,0] or None?
-      if every != 0:
-        voltages.append(voltage)
-        currents.append(current)
-        powers.append(power)
-        pvoltages.append(pvoltage)
-        pcurrents.append(pcurrent)
-        if len(voltages) != every:
-          continue
-        voltage = sum(voltages) / float(len(voltages))
-        current = sum(currents) / float(len(currents))
-        power = sum(powers) / float(len(powers))
-        pvoltage = max(pvoltages)
-        pcurrent = max(pcurrents)
-        voltages = []
-        currents = []
-        powers = []
-        pvoltages = []
-        pcurrents = []
+    try:
+      while (running and (duration == 0.0 or time.time() < endsat)):
+        voltage, current, power, pvoltage, pcurrent = self.rt_read()
+        # TODO should we check if rt_read returns [0,0,0,0,0] or None?
+        if every != 0:
+          voltages.append(voltage)
+          currents.append(current)
+          powers.append(power)
+          pvoltages.append(pvoltage)
+          pcurrents.append(pcurrent)
+          if len(voltages) != every:
+            continue
+          voltage = sum(voltages) / float(len(voltages))
+          current = sum(currents) / float(len(currents))
+          power = sum(powers) / float(len(powers))
+          pvoltage = max(pvoltages)
+          pcurrent = max(pcurrents)
+          voltages = []
+          currents = []
+          powers = []
+          pvoltages = []
+          pcurrents = []
 
-      print("%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f" % (time.time(), voltage, current, power, pvoltage, pcurrent))
-
-    self.rt_stop()
-    self.acquisition_stop()
+        print("%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f" % (time.time(), voltage, current, power, pvoltage, pcurrent))
+    except Exception as e:
+      logging.error("Realtime capture failed (%s)" % e)
+    finally:
+      self.rt_stop()
+      self.acquisition_stop()
 
 # Signal handler to exit properly on SIGINT
 def exit_gracefully(signal, frame):
