@@ -7,7 +7,7 @@ powerspy.py
 
 1. [Required] powerspy.py requires python bluez to communicate using bluetooth with the device. It can be installed on Ubuntu using the following command:
 
-		apt-get install python-bluez
+		apt-get install python-bluez bluez
 
 2. [Optional, recommended] set up your bluetooth device to connect automatically without asking for PIN.
 This can be done by modifying or creating /var/lib/bluetooth/DEVICE/pincodes with the following content: 
