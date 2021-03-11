@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Update: 2021 : Adel Noureddine (Python 3 support and fix 'b' characters in data reception)
 # Copyright (c) 2014 Patrick Marlier <patrick.marlier@gmail.com>
 # Copyright (c) 2014 Mascha Kurpicz <mascha.kurpicz@gmail.com>
 #                    University of Neuchatel, Switzerland
@@ -29,7 +28,6 @@ import signal  # signal handler
 import sys     # system exit
 import time    # sleep/time
 import errno   # IOError numbers
-import codecs  # for hex decoder
 
 # All powerspy commands
 CMD_ID = '?'
@@ -64,8 +62,6 @@ running = True
 # Constants
 DEFAULT_TIMEOUT = 3.0 # secs (float allowed, timeout to receive response from PowerSpy, except in realtime mode)
 DEFAULT_INTERVAL = 1.0 # secs (float allowed, interval between each output)
-
-decode_hex = codecs.getdecoder("hex_codec")
 
 class PowerSpy:
   def __init__ (self):
@@ -131,8 +127,6 @@ class PowerSpy:
         buf = mat.group(1)
         logging.debug("RECV: <%s>" % buf)
         break
-    buf = buf.replace("'b'", "") # Fix receiving 'b' on some powerspy connections
-    logging.debug("RECV corrected: <%s>" % buf)
     return buf
 
   # Check identity
@@ -141,10 +135,8 @@ class PowerSpy:
     s = self.recvCmd(23)
     mat = re.match('POWERSPY(.)(.{12})', s)
     if not mat:
-      mat = re.match('POWERSPY(.)(.{12})', s)
-      if not mat:
-        # Unable to process response for ID
-        return False
+      # Unable to process response for ID
+      return False
     self.status = mat.group(1)
     # 'R': Ready
     # 'W': Waiting trigger
@@ -168,7 +160,7 @@ class PowerSpy:
       val += self.recvCmd(4)
     # Format 32 bits, REAL4
     # < indicates little-endian encoding
-    f = struct.unpack('<f', decode_hex(val)[0])
+    f = struct.unpack('<f', val.decode("hex"))
     return f[0]
 
   # Factory correction voltage coefficient
@@ -202,7 +194,7 @@ class PowerSpy:
   def get_frequency(self):
     self.sendCmd(CMD_FREQUENCY)
     f = self.recvCmd(7)
-    f = struct.unpack('>H', decode_hex(f[1:])[0])
+    f = struct.unpack('>H', f[1:].decode("hex"))
     if self.hw_version == "02":
       self.frequency = 1000000.0 / f[0]
     else:
@@ -305,7 +297,7 @@ class PowerSpy:
     # convert string to values
     conv = []
     for i in range(5):
-      hexa = decode_hex(values[i])[0]
+      hexa = values[i].decode("hex")
       if len(hexa) == 2:
         fmt = '>H'
       elif len(hexa) == 4:
@@ -418,9 +410,8 @@ if __name__ == '__main__':
   #parser.add_argument('--version', action='version', version='%(prog)s unreleased')
   args = parser.parse_args()
 
-  if args.verbose:
-    if args.verbose > 0:
-      logging.basicConfig(level=logging.DEBUG)
+  if args.verbose > 0:
+    logging.basicConfig(level=logging.DEBUG)
 
   # Setup signal handler for CTRL-C
   signal.signal(signal.SIGINT, exit_gracefully)
