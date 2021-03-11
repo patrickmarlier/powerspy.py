@@ -427,12 +427,16 @@ if __name__ == '__main__':
   if args.timeout:
     DEFAULT_TIMEOUT = args.timeout
 
-  # TODO set port to 1 but can be different?
-  port = 1
-  err = dev.connect((args.device_mac, port))
-  if err:
-    print("Cannot connect to the device %s" % args.device_mac)
-    sys.exit(1)
+  if args.device_mac == "simulator":
+    import powerspysimulator
+    dev.sock = powerspysimulator.Simulator()
+  else:
+    # TODO set port to 1 but can be different?
+    port = 1
+    err = dev.connect((args.device_mac, port))
+    if err:
+      print("Cannot connect to the device %s" % args.device_mac)
+      sys.exit(1)
 
   if not dev.init():
     print("Device cannot be initialized")
