@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# Update: 2021 : Adel Noureddine (Python 3 support and fix 'b' characters in data reception)
 # Copyright (c) 2014 Patrick Marlier <patrick.marlier@gmail.com>
 # Copyright (c) 2014 Mascha Kurpicz <mascha.kurpicz@gmail.com>
 #                    University of Neuchatel, Switzerland
@@ -127,6 +128,8 @@ class PowerSpy:
         buf = mat.group(1)
         logging.debug("RECV: <%s>" % buf)
         break
+    buf = buf.replace("'b'", "") # Fix receiving 'b' on some powerspy connections
+    logging.debug("RECV corrected: <%s>" % buf)
     return buf
 
   # Check identity
