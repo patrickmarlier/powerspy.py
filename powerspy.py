@@ -29,6 +29,7 @@ import signal  # signal handler
 import sys     # system exit
 import time    # sleep/time
 import errno   # IOError numbers
+import codecs  # for hex decoder
 
 # All powerspy commands
 CMD_ID = '?'
@@ -63,6 +64,8 @@ running = True
 # Constants
 DEFAULT_TIMEOUT = 3.0 # secs (float allowed, timeout to receive response from PowerSpy, except in realtime mode)
 DEFAULT_INTERVAL = 1.0 # secs (float allowed, interval between each output)
+
+decode_hex = codecs.getdecoder("hex_codec")
 
 class PowerSpy:
   def __init__ (self):
@@ -163,7 +166,7 @@ class PowerSpy:
       val += self.recvCmd(4)
     # Format 32 bits, REAL4
     # < indicates little-endian encoding
-    f = struct.unpack('<f', val.decode("hex"))
+    f = struct.unpack('<f', decode_hex(val)[0])
     return f[0]
 
   # Factory correction voltage coefficient
@@ -197,7 +200,7 @@ class PowerSpy:
   def get_frequency(self):
     self.sendCmd(CMD_FREQUENCY)
     f = self.recvCmd(7)
-    f = struct.unpack('>H', f[1:].decode("hex"))
+    f = struct.unpack('>H', decode_hex(f[1:])[0])
     if self.hw_version == "02":
       self.frequency = 1000000.0 / f[0]
     else:
@@ -300,7 +303,7 @@ class PowerSpy:
     # convert string to values
     conv = []
     for i in range(5):
-      hexa = values[i].decode("hex")
+      hexa = decode_hex(values[i])[0]
       if len(hexa) == 2:
         fmt = '>H'
       elif len(hexa) == 4:
@@ -413,8 +416,9 @@ if __name__ == '__main__':
   #parser.add_argument('--version', action='version', version='%(prog)s unreleased')
   args = parser.parse_args()
 
-  if args.verbose > 0:
-    logging.basicConfig(level=logging.DEBUG)
+  if args.verbose:
+    if args.verbose > 0:
+      logging.basicConfig(level=logging.DEBUG)
 
   # Setup signal handler for CTRL-C
   signal.signal(signal.SIGINT, exit_gracefully)
@@ -423,16 +427,12 @@ if __name__ == '__main__':
   if args.timeout:
     DEFAULT_TIMEOUT = args.timeout
 
-  if args.device_mac == "simulator":
-    import powerspysimulator
-    dev.sock = powerspysimulator.Simulator()
-  else:
-    # TODO set port to 1 but can be different?
-    port = 1
-    err = dev.connect((args.device_mac, port))
-    if err:
-      print("Cannot connect to the device %s" % args.device_mac)
-      sys.exit(1)
+  # TODO set port to 1 but can be different?
+  port = 1
+  err = dev.connect((args.device_mac, port))
+  if err:
+    print("Cannot connect to the device %s" % args.device_mac)
+    sys.exit(1)
 
   if not dev.init():
     print("Device cannot be initialized")
