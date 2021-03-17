@@ -125,14 +125,12 @@ class PowerSpy:
           logging.warning("Maybe timeout? %s" % err)
           break
       # FIXME what to do for multiple message? keep it in buffer...
-      buf = "%s%s" % (buf,r)
+      buf = "%s%s" % (buf,r.decode())
       mat = re.search('<(.*)>', buf, re.MULTILINE)
       if mat:
         buf = mat.group(1)
         logging.debug("RECV: <%s>" % buf)
         break
-    buf = buf.replace("'b'", "") # Fix receiving 'b' on some powerspy connections
-    logging.debug("RECV corrected: <%s>" % buf)
     return buf
 
   # Check identity
