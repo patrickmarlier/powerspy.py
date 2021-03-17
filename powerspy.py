@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# Update: 2021 : Adel Noureddine (Python 3 support and fix 'b' characters in data reception)
 # Copyright (c) 2014 Patrick Marlier <patrick.marlier@gmail.com>
 # Copyright (c) 2014 Mascha Kurpicz <mascha.kurpicz@gmail.com>
 #                    University of Neuchatel, Switzerland
@@ -28,6 +29,7 @@ import signal  # signal handler
 import sys     # system exit
 import time    # sleep/time
 import errno   # IOError numbers
+import codecs  # for hex decoder
 
 # All powerspy commands
 CMD_ID = '?'
@@ -62,6 +64,8 @@ running = True
 # Constants
 DEFAULT_TIMEOUT = 3.0 # secs (float allowed, timeout to receive response from PowerSpy, except in realtime mode)
 DEFAULT_INTERVAL = 1.0 # secs (float allowed, interval between each output)
+
+decode_hex = codecs.getdecoder("hex_codec")
 
 class PowerSpy:
   def __init__ (self):
@@ -121,7 +125,7 @@ class PowerSpy:
           logging.warning("Maybe timeout? %s" % err)
           break
       # FIXME what to do for multiple message? keep it in buffer...
-      buf = "%s%s" % (buf,r)
+      buf = "%s%s" % (buf,r.decode())
       mat = re.search('<(.*)>', buf, re.MULTILINE)
       if mat:
         buf = mat.group(1)
@@ -160,7 +164,7 @@ class PowerSpy:
       val += self.recvCmd(4)
     # Format 32 bits, REAL4
     # < indicates little-endian encoding
-    f = struct.unpack('<f', val.decode("hex"))
+    f = struct.unpack('<f', decode_hex(val)[0])
     return f[0]
 
   # Factory correction voltage coefficient
@@ -194,7 +198,7 @@ class PowerSpy:
   def get_frequency(self):
     self.sendCmd(CMD_FREQUENCY)
     f = self.recvCmd(7)
-    f = struct.unpack('>H', f[1:].decode("hex"))
+    f = struct.unpack('>H', decode_hex(f[1:])[0])
     if self.hw_version == "02":
       self.frequency = 1000000.0 / f[0]
     else:
@@ -297,7 +301,7 @@ class PowerSpy:
     # convert string to values
     conv = []
     for i in range(5):
-      hexa = values[i].decode("hex")
+      hexa = decode_hex(values[i])[0]
       if len(hexa) == 2:
         fmt = '>H'
       elif len(hexa) == 4:
@@ -402,7 +406,7 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Alciom PowerSpy reader.')
   # TODO can add mac address checker and normalizer
   parser.add_argument('device_mac', metavar='MAC', help='MAC address of the PowerSpy device.')
-  parser.add_argument('-v', '--verbose', action='count', help='Verbose mode.')
+  parser.add_argument('-v', '--verbose', action='count', default=0, help='Verbose mode.')
   parser.add_argument('-i', '--interval', type=float, default=1.0, help='Interval between each measurement.')
   parser.add_argument('-t', '-d', '--time', '--duration', type=float, default=0.0, help='Duration of execution (seconds). 0 means running indefinitely.')
   parser.add_argument('-T', '--timeout', type=float, default=0.0, help='Maxiumum duration to get an answer from the device (seconds).')
